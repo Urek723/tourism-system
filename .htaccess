@@ -1,0 +1,31 @@
+# .htaccess — Root security configuration
+# Place this in the project root directory.
+
+Options -Indexes
+
+# ── Protect sensitive files ───────────────────────────────────────────────
+<FilesMatch "^(db\.php|functions\.php|schema\.sql|\.env|composer\.json)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Block log files
+<FilesMatch "\.(log|sql|bak|tmp)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# ── Security headers ──────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options    "nosniff"
+    Header always set X-Frame-Options           "SAMEORIGIN"
+    Header always set X-XSS-Protection          "1; mode=block"
+    Header always set Referrer-Policy           "strict-origin-when-cross-origin"
+    Header unset X-Powered-By
+</IfModule>
+
+# Disable ETags
+FileETag None
+
+# ── Hide PHP version ──────────────────────────────────────────────────────
+ServerSignature Off
