@@ -1,8 +1,8 @@
 <?php
 
-
 require_once 'db.php';
 require_once 'functions.php';
+require_once 'activity_logger.php';
 
 start_secure_session();
 
@@ -74,6 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':category'    => $old['category'],
                 ':image_url'   => !empty($old['image_url']) ? $old['image_url'] : null,
             ]);
+
+            log_activity((int)$_SESSION['user_id'], 'admin_location_added');
 
             // PRG Pattern: redirect after POST to prevent duplicate submissions
             set_flash('success', 'Location "' . $old['title'] . '" added successfully!');

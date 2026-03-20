@@ -1,6 +1,5 @@
 <?php
 
-
 require_once 'db.php';
 require_once 'functions.php';
 require_once 'activity_logger.php';
@@ -53,11 +52,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     log_activity((int)$user['id'], 'login');
 
-                    $redirect = $_SESSION['redirect_after_login'] ?? 'dashboard.php';
+                    // Strict redirect validation — root-relative .php paths only, no traversal
+                    $redirect = $_SESSION['redirect_after_login'] ?? '/dashboard.php';
                     unset($_SESSION['redirect_after_login']);
-                    if (!preg_match('/^[a-zA-Z0-9_\-\/\.]+\.php/', $redirect)) {
-                        $redirect = 'dashboard.php';
+
+                    if (!preg_match('#^/[a-zA-Z0-9_\-/]+\.php$#', $redirect)
+                        || str_contains($redirect, '..')) {
+                        $redirect = '/dashboard.php';
                     }
+
                     redirect($redirect);
 
                 } else {

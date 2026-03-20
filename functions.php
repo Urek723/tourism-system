@@ -1,5 +1,5 @@
 <?php
-
+define('BASE_URL', '/tourism_system/');
 /**
  * Safely escape a string for HTML output.
  * Always use this when printing user-supplied or database data in HTML.
@@ -388,16 +388,7 @@ function clear_login_attempts(): void
  * Strips scheme+host to prevent open redirect, then ensures
  * the path starts with / so it is always root-relative.
  */
-function redirect(string $path): void
-{
-    // Strip any scheme + host (prevents open redirect)
-    $path = preg_replace('#^https?://[^/]*#', '', $path);
-
-    // Ensure root-relative
-    if (!str_starts_with($path, '/')) {
-        $path = '/' . $path;
-    }
-
-    header('Location: ' . $path);
+function redirect($path) {
+    header("Location: " . BASE_URL . $path);
     exit;
 }

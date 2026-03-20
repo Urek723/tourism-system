@@ -1,9 +1,15 @@
 <?php
 
-define('BASE_URL', '/'); 
+// Prevent back-button bypass after logout on all pages that include this header
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: Sat, 01 Jan 2000 00:00:00 GMT');
+}
+
+define('BASE_URL', '/');
 
 $page_title = $page_title ?? 'Tupi Tourism';
-
 
 $current = basename($_SERVER['SCRIPT_NAME']);
 ?>
@@ -250,7 +256,6 @@ $current = basename($_SERVER['SCRIPT_NAME']);
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center gap-1">
                 <?php if (is_logged_in()): ?>
 
-                    
                     <?php if (is_admin()): ?>
                     <li class="nav-item">
                         <a class="nav-link" href="admin/admin_panel.php"

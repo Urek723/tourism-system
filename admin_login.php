@@ -1,14 +1,10 @@
 <?php
 
-    
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
 require_once 'db.php';
 require_once 'functions.php';
 require_once 'activity_logger.php';
 
 start_secure_session();
-
 
 if (is_admin()) {
     redirect('admin/admin_panel.php');
@@ -22,12 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 1. CSRF
     require_csrf();
 
-// Brute-force check TEMPORARILY DISABLED for testing
-// if (is_locked_out()) {
-//     $error = 'Too many failed attempts. Please wait 15 minutes.';
-// } else {
-if (true) {
-      
+    // 2. Brute-force lockout
+    if (is_locked_out()) {
+        $error = 'Too many failed attempts. Please wait 15 minutes.';
+    } else {
         $username = clean_string($_POST['username'] ?? '', 50);
         $password = $_POST['password'] ?? '';
 
@@ -36,7 +30,6 @@ if (true) {
         } else {
             try {
                 $db   = get_db();
-             
                 $stmt = $db->prepare(
                     "SELECT id, username, password, role
                      FROM   users
@@ -45,25 +38,24 @@ if (true) {
                 );
                 $stmt->execute([$username]);
                 $user = $stmt->fetch();
+
+                // Dummy hash prevents timing attacks when user not found
                 $dummy_hash = '$2y$12$invalidsaltinvalidhashinvalidhashx';
                 $hash       = $user ? $user['password'] : $dummy_hash;
 
                 if ($user && password_verify($password, $hash) && $user['role'] === 'admin') {
-                    
                     clear_login_attempts();
-                    session_regenerate_id(true); // Prevent session fixation
+                    session_regenerate_id(true);
 
                     $_SESSION['user_id']       = (int)$user['id'];
                     $_SESSION['username']      = $user['username'];
                     $_SESSION['user_role']     = $user['role'];
                     $_SESSION['logged_in_at']  = time();
-                    $_SESSION['admin_session'] = true; // Extra flag for admin pages
+                    $_SESSION['admin_session'] = true;
 
                     log_activity((int)$user['id'], 'admin_login');
-
                     redirect('admin/admin_panel.php');
                 } else {
-               
                     record_failed_login();
                     $error = 'Invalid credentials or insufficient privileges.';
                 }
