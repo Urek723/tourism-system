@@ -1,5 +1,4 @@
 <?php
-
 require_once 'db.php';
 require_once 'functions.php';
 require_once 'activity_logger.php';
@@ -33,35 +32,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$username]);
                 $user = $stmt->fetch();
 
-                if ($user && password_verify($password, $user['password'])) {
+                // Dummy hash prevents user enumeration via timing
+                $dummy_hash = '$2y$12$invalidsaltinvalidhashinvalidhashx';
+                $hash       = $user ? $user['password'] : $dummy_hash;
+
+                if ($user && password_verify($password, $hash)) {
                     clear_login_attempts();
                     session_regenerate_id(true);
+                    $_SESSION['__created'] = time();
 
                     $_SESSION['user_id']      = (int)$user['id'];
                     $_SESSION['username']     = $user['username'];
                     $_SESSION['user_role']    = $user['role'];
                     $_SESSION['logged_in_at'] = time();
 
-                    // Check if user has preferences — flag for onboarding modal
+                    // Onboarding modal flag
                     $pStmt = $db->prepare(
                         'SELECT COUNT(*) FROM user_preferences WHERE user_id = ?'
                     );
                     $pStmt->execute([(int)$user['id']]);
-                    $has_prefs = (int)$pStmt->fetchColumn() > 0;
-                    $_SESSION['show_onboarding'] = !$has_prefs;
+                    $_SESSION['show_onboarding'] = ((int)$pStmt->fetchColumn() === 0);
 
                     log_activity((int)$user['id'], 'login');
 
-                    // Strict redirect validation — root-relative .php paths only, no traversal
-                    $redirect = $_SESSION['redirect_after_login'] ?? '/dashboard.php';
+                    // Validate stored redirect — must be within this app
+                    $stored = $_SESSION['redirect_after_login'] ?? '';
                     unset($_SESSION['redirect_after_login']);
 
-                    if (!preg_match('#^/[a-zA-Z0-9_\-/]+\.php$#', $redirect)
-                        || str_contains($redirect, '..')) {
-                        $redirect = '/dashboard.php';
+                    $safe_redirect = BASE_URL . 'dashboard.php';
+                    if (!empty($stored)
+                        && str_starts_with($stored, BASE_URL)
+                        && !str_contains($stored, '..')
+                        && preg_match('#^[/a-zA-Z0-9_\-?=&%\.]+$#', $stored)
+                    ) {
+                        $safe_redirect = $stored;
                     }
 
-                    redirect($redirect);
+                    header('Location: ' . $safe_redirect);
+                    exit;
 
                 } else {
                     record_failed_login();

@@ -1,5 +1,4 @@
 <?php
-
 require_once '../db.php';
 require_once '../functions.php';
 require_once '../activity_logger.php';
@@ -7,7 +6,6 @@ require_once '../activity_logger.php';
 start_secure_session();
 require_admin();
 
-// Guard: must have logged in via admin_login.php
 if (empty($_SESSION['admin_session'])) {
     destroy_session();
     redirect('admin_login.php');
@@ -17,23 +15,25 @@ $page_title = 'Moderate Comments';
 $admin_id   = (int)$_SESSION['user_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // CSRF check FIRST — then read any POST values
     require_csrf();
-    $comment_id   = clean_int($_POST['comment_id'] ?? 0);
-    $back_filter  = in_array($_POST['current_filter'] ?? '', ['pending', 'approved'])
-                    ? $_POST['current_filter'] : 'pending';
+
+    $comment_id  = clean_int($_POST['comment_id'] ?? 0);
+    $back_filter = in_array($_POST['current_filter'] ?? '', ['pending', 'approved'])
+                   ? $_POST['current_filter'] : 'pending';
 
     if ($comment_id > 0) {
         try {
             $db = get_db();
 
             if (isset($_POST['approve'])) {
-                $stmt = $db->prepare("UPDATE comments SET status = 'approved' WHERE id = ?");
-                $stmt->execute([$comment_id]);
+                $db->prepare("UPDATE comments SET status = 'approved' WHERE id = ?")
+                   ->execute([$comment_id]);
                 log_activity($admin_id, 'admin_comment_approved');
                 set_flash('success', 'Comment approved.');
             } elseif (isset($_POST['delete_comment'])) {
-                $stmt = $db->prepare('DELETE FROM comments WHERE id = ?');
-                $stmt->execute([$comment_id]);
+                $db->prepare('DELETE FROM comments WHERE id = ?')
+                   ->execute([$comment_id]);
                 log_activity($admin_id, 'admin_comment_deleted');
                 set_flash('success', 'Comment deleted.');
             }
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    redirect('admin/manage_comments.php?filter=' . $back_filter);
+    redirect('admin/manage_comments.php?filter=' . urlencode($back_filter));
 }
 
 $filter = in_array($_GET['filter'] ?? '', ['pending', 'approved']) ? $_GET['filter'] : 'pending';

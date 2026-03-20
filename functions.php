@@ -1,21 +1,12 @@
 <?php
 
-// ── Base URL — set this to match your project folder ──────────────────────
-// If running at http://localhost/tourism_system/ → use '/tourism_system/'
-// If running at http://localhost/               → use '/'
 define('BASE_URL', '/tourism_system/');
 
-/**
- * Safely escape a string for HTML output.
- */
 function e(?string $value): string
 {
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 
-/**
- * Escape a value for use inside an HTML attribute.
- */
 function eAttr(?string $value): string
 {
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -86,9 +77,8 @@ function require_csrf(): void
 {
     if (!verify_csrf()) {
         http_response_code(403);
-        die('<p style="color:red;font-family:sans-serif;">
-             Invalid request (CSRF token mismatch).
-             <a href="javascript:history.back()">Go back</a>.
+        die('<p style="font-family:sans-serif;color:#c0392b;">
+             Invalid or expired request. Please <a href="javascript:history.back()">go back</a> and try again.
              </p>');
     }
 }
@@ -127,19 +117,12 @@ function start_secure_session(): void
     // Idle timeout — 30 minutes
     if (isset($_SESSION['last_activity']) &&
         (time() - $_SESSION['last_activity']) > 1800) {
-        $_SESSION = [];
-        if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000,
-                $params['path'], $params['domain'],
-                $params['secure'], $params['httponly']);
-        }
-        session_destroy();
+        _destroy_session_data();
         session_start();
     }
     $_SESSION['last_activity'] = time();
 
-    // Periodic session ID regeneration
+    // Periodic session ID regeneration every 5 minutes
     if (!isset($_SESSION['__created'])) {
         $_SESSION['__created'] = time();
     } elseif (time() - $_SESSION['__created'] > 300) {
@@ -148,7 +131,7 @@ function start_secure_session(): void
     }
 }
 
-function destroy_session(): void
+function _destroy_session_data(): void
 {
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
@@ -160,11 +143,16 @@ function destroy_session(): void
     session_destroy();
 }
 
+function destroy_session(): void
+{
+    _destroy_session_data();
+}
+
 // ── Authentication Guards ──────────────────────────────────────────────────
 
 function is_logged_in(): bool
 {
-    return !empty($_SESSION['user_id']);
+    return !empty($_SESSION['user_id']) && !empty($_SESSION['username']);
 }
 
 function is_admin(): bool
@@ -172,30 +160,20 @@ function is_admin(): bool
     return is_logged_in() && ($_SESSION['user_role'] ?? '') === 'admin';
 }
 
-/**
- * Require the user to be logged in.
- * Always redirects to the absolute login URL so it works from any subfolder.
- */
 function require_login(): void
 {
     if (!is_logged_in()) {
-        $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? BASE_URL;
-        // Use absolute path so this works from /admin/ subfolders too
+        $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '';
         header('Location: ' . BASE_URL . 'login.php');
         exit;
     }
 }
 
-/**
- * Require the user to be an admin.
- * Always redirects to the absolute dashboard URL so it works from any subfolder.
- */
 function require_admin(): void
 {
     require_login();
     if (!is_admin()) {
         set_flash('error', 'You do not have permission to access that page.');
-        // Use absolute path so this works from /admin/ subfolders too
         header('Location: ' . BASE_URL . 'dashboard.php');
         exit;
     }
@@ -225,9 +203,10 @@ function flash_alert(string $type, string $bootstrapClass = ''): string
         'info'    => 'alert-info',
         default   => 'alert-warning',
     };
+    // e() applied to message — safe against XSS
     return '<div class="alert ' . $class . ' alert-dismissible fade show" role="alert">'
          . e($msg)
-         . '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>'
+         . '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>'
          . '</div>';
 }
 
@@ -238,6 +217,7 @@ define('LOCKOUT_SECONDS',    900);
 
 function get_client_ip(): string
 {
+    // Only trust REMOTE_ADDR — do not use X-Forwarded-For without trusted proxy validation
     return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 }
 
@@ -259,7 +239,7 @@ function is_locked_out(): bool
         }
         return (int)$row['attempts'] >= MAX_LOGIN_ATTEMPTS;
     } catch (PDOException $e) {
-        error_log('[RATE LIMIT CHECK ERROR] ' . $e->getMessage());
+        error_log('[RATE LIMIT CHECK] ' . $e->getMessage());
         return false;
     }
 }
@@ -276,7 +256,7 @@ function record_failed_login(): void
         );
         $stmt->execute([$ip]);
     } catch (PDOException $e) {
-        error_log('[RECORD LOGIN ATTEMPT ERROR] ' . $e->getMessage());
+        error_log('[RECORD LOGIN ATTEMPT] ' . $e->getMessage());
     }
 }
 
@@ -287,32 +267,36 @@ function clear_login_attempts(): void
         $ip   = get_client_ip();
         $db->prepare('DELETE FROM login_attempts WHERE ip_address = ?')->execute([$ip]);
     } catch (PDOException $e) {
-        error_log('[CLEAR LOGIN ATTEMPTS ERROR] ' . $e->getMessage());
+        error_log('[CLEAR LOGIN ATTEMPTS] ' . $e->getMessage());
     }
 }
 
 // ── Redirect Helper ────────────────────────────────────────────────────────
 
 /**
- * Redirect to a path relative to BASE_URL.
- *
- * Pass paths WITHOUT a leading slash:
- *   redirect('login.php')                 → /tourism_system/login.php
- *   redirect('admin/admin_panel.php')     → /tourism_system/admin/admin_panel.php
- *   redirect('admin/manage_locations.php')→ /tourism_system/admin/manage_locations.php
- *
- * Paths that already start with / are used as-is (scheme+host stripped
- * to prevent open redirect).
+ * Safe redirect. Accepts:
+ *   - Relative paths (no leading slash): prepends BASE_URL
+ *   - Absolute paths (leading slash):    used as-is after stripping scheme+host
+ * Prevents open redirect by rejecting anything that resolves outside the app.
  */
 function redirect(string $path): void
 {
-    // Strip scheme+host if someone passes a full URL (prevents open redirect)
+    // Strip scheme + host to prevent open redirect (e.g. http://evil.com)
     $path = preg_replace('#^https?://[^/]*#', '', $path);
 
-    // If already absolute (starts with /), use as-is
-    // Otherwise prepend BASE_URL so it resolves correctly from any subfolder
+    // Reject protocol-relative URLs (//evil.com)
+    if (str_starts_with($path, '//')) {
+        $path = BASE_URL;
+    }
+
+    // Prepend BASE_URL for relative paths
     if (!str_starts_with($path, '/')) {
         $path = BASE_URL . $path;
+    }
+
+    // Ensure the final path starts with BASE_URL (blocks escaping the app root)
+    if (!str_starts_with($path, BASE_URL) && $path !== '/') {
+        $path = BASE_URL;
     }
 
     header('Location: ' . $path);

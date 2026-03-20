@@ -1,31 +1,39 @@
 # .htaccess — Root security configuration
-# Place this in the project root directory.
 
 Options -Indexes
 
 # ── Protect sensitive files ───────────────────────────────────────────────
-<FilesMatch "^(db\.php|functions\.php|schema\.sql|\.env|composer\.json)$">
+<FilesMatch "^(db\.php|functions\.php|schema\.sql|\.env|composer\.json|activity_logger\.php|patch_ratings_engine\.sql)$">
     Order Allow,Deny
     Deny from all
 </FilesMatch>
 
-# Block log files
-<FilesMatch "\.(log|sql|bak|tmp)$">
+# Block log/backup/temp files
+<FilesMatch "\.(log|sql|bak|tmp|sh|py)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Block orphan/duplicate admin file at root level
+<FilesMatch "^admin_index\.php$">
     Order Allow,Deny
     Deny from all
 </FilesMatch>
 
 # ── Security headers ──────────────────────────────────────────────────────
 <IfModule mod_headers.c>
-    Header always set X-Content-Type-Options    "nosniff"
-    Header always set X-Frame-Options           "SAMEORIGIN"
-    Header always set X-XSS-Protection          "1; mode=block"
-    Header always set Referrer-Policy           "strict-origin-when-cross-origin"
+    Header always set X-Content-Type-Options          "nosniff"
+    Header always set X-Frame-Options                 "SAMEORIGIN"
+    Header always set X-XSS-Protection               "1; mode=block"
+    Header always set Referrer-Policy                 "strict-origin-when-cross-origin"
+    Header always set X-Permitted-Cross-Domain-Policies "none"
+    Header always set Permissions-Policy              "geolocation=(), microphone=(), camera=()"
     Header unset X-Powered-By
+    Header unset Server
 </IfModule>
 
-# Disable ETags
+# Disable ETags (information leakage)
 FileETag None
 
-# ── Hide PHP version ──────────────────────────────────────────────────────
+# ── Hide server info ──────────────────────────────────────────────────────
 ServerSignature Off

@@ -1,13 +1,4 @@
 <?php
-/**
- * save_preferences.php
- * POST handler for the onboarding preference modal on the dashboard.
- * Accepts JSON body: { csrf_token, categories: [] }
- * Returns JSON: { success: true } or { error: "..." }
- *
- * Security: require_login, CSRF, whitelist validation, prepared statements.
- */
-
 require_once 'db.php';
 require_once 'functions.php';
 require_once 'activity_logger.php';
@@ -27,10 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// Parse JSON body
 $body = json_decode(file_get_contents('php://input'), true) ?? [];
 
-// CSRF — token sent in JSON body
 $token = $body['csrf_token'] ?? '';
 if (empty($token) || !hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
     http_response_code(403);
@@ -38,20 +27,18 @@ if (empty($token) || !hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
     exit;
 }
 
-$user_id    = (int)$_SESSION['user_id'];
-$submitted  = is_array($body['categories'] ?? null) ? $body['categories'] : [];
+$user_id   = (int)$_SESSION['user_id'];
+$submitted = is_array($body['categories'] ?? null) ? $body['categories'] : [];
 
 try {
     $db = get_db();
 
-    // Fetch valid categories (whitelist)
     $stmt = $db->prepare(
         'SELECT DISTINCT category FROM locations WHERE is_active = 1'
     );
     $stmt->execute();
     $valid = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-    // Filter to only valid categories
     $clean = array_values(array_unique(
         array_filter(
             array_map(fn($c) => clean_string((string)$c, 100), $submitted),

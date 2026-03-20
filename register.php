@@ -1,96 +1,88 @@
 <?php
-
-
 require_once 'db.php';
 require_once 'functions.php';
 
 start_secure_session();
 
-// Already logged in? Send to dashboard
 if (is_logged_in()) {
     redirect('dashboard.php');
 }
 
 $page_title = 'Create Account';
 $errors     = [];
-$old        = []; // Repopulate form on validation failure
+$old        = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // ── 1. Verify CSRF ─────────────────────────────────────────
     require_csrf();
 
-    // ── 2. Sanitise inputs ─────────────────────────────────────
-    $old['username'] = clean_string($_POST['username'] ?? '', 50);
-    $old['email']    = clean_email($_POST['email']     ?? '');
-    $password        = $_POST['password']         ?? '';
-    $password_conf   = $_POST['password_confirm']  ?? '';
-
-    // ── 3. Validate ────────────────────────────────────────────
-    if (empty($old['username'])) {
-        $errors[] = 'Username is required.';
-    } elseif (!validate_username($old['username'])) {
-        $errors[] = 'Username must be 3–50 characters: letters, numbers, underscores only.';
+    // Basic rate limiting: reuse login_attempts to throttle registration abuse
+    if (is_locked_out()) {
+        $errors[] = 'Too many requests from your IP. Please wait 15 minutes and try again.';
     }
 
-    if (empty($old['email'])) {
-        $errors[] = 'A valid email address is required.';
-    }
-
-    // Password strength
-    $pw_errors = validate_password($password);
-    $errors    = array_merge($errors, $pw_errors);
-
-    if ($password !== $password_conf) {
-        $errors[] = 'Passwords do not match.';
-    }
-
-    // ── 4. Check uniqueness (prepared statement) ──────────────
     if (empty($errors)) {
-        try {
-            $db   = get_db();
+        $old['username'] = clean_string($_POST['username'] ?? '', 50);
+        $old['email']    = clean_email($_POST['email']     ?? '');
+        $password        = $_POST['password']        ?? '';
+        $password_conf   = $_POST['password_confirm'] ?? '';
 
-            $stmt = $db->prepare('SELECT COUNT(*) FROM users WHERE username = ?');
-            $stmt->execute([$old['username']]);
-            if ($stmt->fetchColumn() > 0) {
-                $errors[] = 'That username is already taken. Please choose another.';
-            }
-
-            $stmt = $db->prepare('SELECT COUNT(*) FROM users WHERE email = ?');
-            $stmt->execute([$old['email']]);
-            if ($stmt->fetchColumn() > 0) {
-                $errors[] = 'An account with that email already exists.';
-            }
-        } catch (PDOException $e) {
-            error_log('[REGISTER UNIQUENESS CHECK] ' . $e->getMessage());
-            $errors[] = 'A server error occurred. Please try again.';
+        if (empty($old['username'])) {
+            $errors[] = 'Username is required.';
+        } elseif (!validate_username($old['username'])) {
+            $errors[] = 'Username must be 3–50 characters: letters, numbers, underscores only.';
         }
-    }
 
-    // ── 5. Insert new user ─────────────────────────────────────
-    if (empty($errors)) {
-        try {
-            $db = get_db();
+        if (empty($old['email'])) {
+            $errors[] = 'A valid email address is required.';
+        }
 
-            // SECURITY: password_hash with bcrypt, cost 12
-            $hashed = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+        $pw_errors = validate_password($password);
+        $errors    = array_merge($errors, $pw_errors);
 
-            $stmt = $db->prepare(
-                'INSERT INTO users (username, email, password)
-                 VALUES (:username, :email, :password)'
-            );
-            $stmt->execute([
-                ':username' => $old['username'],
-                ':email'    => $old['email'],
-                ':password' => $hashed,
-            ]);
+        if ($password !== $password_conf) {
+            $errors[] = 'Passwords do not match.';
+        }
 
-            set_flash('success', 'Account created! You can now sign in.');
-            redirect('login.php');
+        if (empty($errors)) {
+            try {
+                $db = get_db();
 
-        } catch (PDOException $e) {
-            error_log('[REGISTER INSERT ERROR] ' . $e->getMessage());
-            $errors[] = 'Registration failed. Please try again.';
+                $stmt = $db->prepare('SELECT COUNT(*) FROM users WHERE username = ?');
+                $stmt->execute([$old['username']]);
+                if ($stmt->fetchColumn() > 0) {
+                    $errors[] = 'That username is already taken. Please choose another.';
+                }
+
+                $stmt = $db->prepare('SELECT COUNT(*) FROM users WHERE email = ?');
+                $stmt->execute([$old['email']]);
+                if ($stmt->fetchColumn() > 0) {
+                    $errors[] = 'An account with that email already exists.';
+                }
+            } catch (PDOException $e) {
+                error_log('[REGISTER UNIQUENESS CHECK] ' . $e->getMessage());
+                $errors[] = 'A server error occurred. Please try again.';
+            }
+        }
+
+        if (empty($errors)) {
+            try {
+                $db = get_db();
+
+                $hashed = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+
+                $stmt = $db->prepare(
+                    'INSERT INTO users (username, email, password) VALUES (?, ?, ?)'
+                );
+                $stmt->execute([$old['username'], $old['email'], $hashed]);
+
+                set_flash('success', 'Account created! You can now sign in.');
+                redirect('login.php');
+
+            } catch (PDOException $e) {
+                error_log('[REGISTER INSERT] ' . $e->getMessage());
+                $errors[] = 'Registration failed. Please try again.';
+            }
         }
     }
 }
@@ -125,11 +117,9 @@ require_once 'includes/header.php';
                 <?php endif; ?>
 
                 <div class="auth-card p-4 p-md-5">
-                    <form method="POST" action="register.php" novalidate
-                          autocomplete="off">
+                    <form method="POST" action="register.php" novalidate autocomplete="off">
                         <?= csrf_field() ?>
 
-                        <!-- Username -->
                         <div class="mb-3">
                             <label for="username" class="form-label">Username</label>
                             <div class="input-group">
@@ -143,12 +133,9 @@ require_once 'includes/header.php';
                                        placeholder="e.g. juan_dela_cruz"
                                        required>
                             </div>
-                            <div class="form-text">
-                                3–50 characters. Letters, numbers, underscores only.
-                            </div>
+                            <div class="form-text">3–50 characters. Letters, numbers, underscores only.</div>
                         </div>
 
-                        <!-- Email -->
                         <div class="mb-3">
                             <label for="email" class="form-label">Email Address</label>
                             <div class="input-group">
@@ -164,7 +151,6 @@ require_once 'includes/header.php';
                             </div>
                         </div>
 
-                        <!-- Password -->
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
                             <div class="input-group">
@@ -178,16 +164,11 @@ require_once 'includes/header.php';
                                        autocomplete="new-password"
                                        required>
                             </div>
-                            <div class="form-text">
-                                Min. 8 characters with uppercase, lowercase, and a number.
-                            </div>
+                            <div class="form-text">Min. 8 characters with uppercase, lowercase, and a number.</div>
                         </div>
 
-                        <!-- Password Confirm -->
                         <div class="mb-4">
-                            <label for="password_confirm" class="form-label">
-                                Confirm Password
-                            </label>
+                            <label for="password_confirm" class="form-label">Confirm Password</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white">
                                     <i class="bi bi-lock-fill text-brand"></i>
@@ -206,8 +187,7 @@ require_once 'includes/header.php';
                             <i class="bi bi-person-plus me-2"></i>Create Account
                         </button>
 
-                        <p class="text-center mt-3 mb-0"
-                           style="font-size:.8rem;color:var(--brand-muted);">
+                        <p class="text-center mt-3 mb-0" style="font-size:.8rem;color:var(--brand-muted);">
                             By registering you agree to our terms of service.
                         </p>
                     </form>

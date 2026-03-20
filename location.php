@@ -1,19 +1,13 @@
 <?php
-/**
- * location.php
- * Fixes applied:
- *  - Google Maps script URL corrected to JS API endpoint
- *  - textarea id="comment" added (char counter was broken)
- *  - API key moved to constant (define in db.php)
- */
-
 require_once 'db.php';
 require_once 'functions.php';
 
 start_secure_session();
 
 $id = clean_int($_GET['id'] ?? 0);
-if ($id === 0) { header('Location: /locations.php'); exit; }
+if ($id === 0) {
+    redirect('locations.php');
+}
 
 $location = null;
 try {
@@ -21,7 +15,9 @@ try {
     $stmt = $db->prepare('SELECT * FROM locations WHERE id = ? AND is_active = 1 LIMIT 1');
     $stmt->execute([$id]);
     $location = $stmt->fetch();
-} catch (PDOException $e) { error_log('[LOC FETCH] ' . $e->getMessage()); }
+} catch (PDOException $e) {
+    error_log('[LOC FETCH] ' . $e->getMessage());
+}
 
 if (!$location) {
     http_response_code(404);
@@ -29,7 +25,7 @@ if (!$location) {
     require_once 'includes/header.php';
     echo '<main class="py-5 text-center"><div class="container">
           <h2>Destination Not Found</h2>
-          <a href="locations.php" class="btn btn-brand">Back</a>
+          <a href="' . BASE_URL . 'locations.php" class="btn btn-brand">Back to Destinations</a>
           </div></main>';
     require_once 'includes/footer.php';
     exit;
@@ -53,7 +49,9 @@ try {
         $ex = $stmt->fetch();
         $user_rating = $ex ? (int)$ex['rating'] : 0;
     }
-} catch (PDOException $e) { error_log('[LOC RATINGS] ' . $e->getMessage()); }
+} catch (PDOException $e) {
+    error_log('[LOC RATINGS] ' . $e->getMessage());
+}
 
 // Is it favorited?
 $is_favorited = false;
@@ -64,7 +62,9 @@ if (is_logged_in()) {
         );
         $stmt->execute([(int)$_SESSION['user_id'], $id]);
         $is_favorited = (bool)$stmt->fetch();
-    } catch (PDOException $e) { error_log('[LOC FAV] ' . $e->getMessage()); }
+    } catch (PDOException $e) {
+        error_log('[LOC FAV] ' . $e->getMessage());
+    }
 }
 
 // Comments (approved only)
@@ -78,9 +78,11 @@ try {
     );
     $stmt->execute([$id]);
     $comments = $stmt->fetchAll();
-} catch (PDOException $e) { error_log('[LOC COMMENTS] ' . $e->getMessage()); }
+} catch (PDOException $e) {
+    error_log('[LOC COMMENTS] ' . $e->getMessage());
+}
 
-// Related
+// Related locations
 $related = [];
 try {
     $stmt = $db->prepare(
@@ -89,14 +91,15 @@ try {
     );
     $stmt->execute([$id]);
     $related = $stmt->fetchAll();
-} catch (PDOException $e) { error_log('[LOC RELATED] ' . $e->getMessage()); }
+} catch (PDOException $e) {
+    error_log('[LOC RELATED] ' . $e->getMessage());
+}
 
 $page_title = $location['title'];
 $has_coords = !empty($location['latitude']) && !empty($location['longitude']);
 
-// Google Maps API key — define GOOGLE_MAPS_KEY in db.php
-// Example: define('GOOGLE_MAPS_KEY', 'your_key_here');
-$maps_key = defined('GOOGLE_MAPS_KEY') ? GOOGLE_MAPS_KEY : '';
+// Trim any accidental trailing chars from the key constant
+$maps_key = defined('GOOGLE_MAPS_KEY') ? rtrim(GOOGLE_MAPS_KEY, '&q=') : '';
 
 require_once 'includes/header.php';
 ?>
@@ -136,8 +139,8 @@ require_once 'includes/header.php';
 
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb" style="font-size:.85rem;">
-            <li class="breadcrumb-item"><a href="index.php" class="text-brand">Home</a></li>
-            <li class="breadcrumb-item"><a href="locations.php" class="text-brand">Destinations</a></li>
+            <li class="breadcrumb-item"><a href="<?= BASE_URL ?>index.php" class="text-brand">Home</a></li>
+            <li class="breadcrumb-item"><a href="<?= BASE_URL ?>locations.php" class="text-brand">Destinations</a></li>
             <li class="breadcrumb-item active"><?= e($location['title']) ?></li>
         </ol>
     </nav>
@@ -209,7 +212,7 @@ require_once 'includes/header.php';
                 <hr class="divider-brand">
                 <?php if (is_logged_in()): ?>
                 <div class="auth-card p-4">
-                    <form method="POST" action="add_rating.php">
+                    <form method="POST" action="<?= BASE_URL ?>add_rating.php">
                         <?= csrf_field() ?>
                         <input type="hidden" name="location_id" value="<?= $id ?>">
                         <div class="star-input-group mb-3" role="radiogroup">
@@ -229,7 +232,7 @@ require_once 'includes/header.php';
                 <div class="p-4 rounded-3" style="background:var(--brand-light);border:1px dashed #b8d4bf;">
                     <p class="mb-0" style="color:var(--brand-muted);">
                         <i class="bi bi-lock me-2"></i>
-                        <a href="login.php" class="text-brand fw-semibold">Sign in</a> to rate.
+                        <a href="<?= BASE_URL ?>login.php" class="text-brand fw-semibold">Sign in</a> to rate.
                     </p>
                 </div>
                 <?php endif; ?>
@@ -245,12 +248,11 @@ require_once 'includes/header.php';
 
                 <?php if (is_logged_in()): ?>
                 <div class="auth-card p-4 mb-4">
-                    <form method="POST" action="add_comment.php" novalidate>
+                    <form method="POST" action="<?= BASE_URL ?>add_comment.php" novalidate>
                         <?= csrf_field() ?>
                         <input type="hidden" name="location_id" value="<?= $id ?>">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Share Your Experience</label>
-                            <!-- id="comment" is required for the character counter below -->
                             <textarea name="comment" id="comment" class="form-control" rows="3"
                                       maxlength="1000" required
                                       placeholder="What did you think of <?= eAttr($location['title']) ?>?"></textarea>
@@ -268,7 +270,7 @@ require_once 'includes/header.php';
                 <div class="p-4 rounded-3 mb-4" style="background:var(--brand-light);border:1px dashed #b8d4bf;">
                     <p class="mb-0" style="color:var(--brand-muted);">
                         <i class="bi bi-lock me-2"></i>
-                        <a href="login.php" class="text-brand fw-semibold">Sign in</a> to comment.
+                        <a href="<?= BASE_URL ?>login.php" class="text-brand fw-semibold">Sign in</a> to comment.
                     </p>
                 </div>
                 <?php endif; ?>
@@ -332,13 +334,13 @@ require_once 'includes/header.php';
 
                 <?php if (is_logged_in()): ?>
                 <div class="mt-4 d-grid gap-2">
-                    <a href="trip_planner.php" class="btn btn-brand">
+                    <a href="<?= BASE_URL ?>trip_planner.php" class="btn btn-brand">
                         <i class="bi bi-map me-2"></i>Add to Trip Plan
                     </a>
-                    <a href="bookings.php" class="btn btn-outline-secondary">
+                    <a href="<?= BASE_URL ?>bookings.php" class="btn btn-outline-secondary">
                         <i class="bi bi-calendar-check me-2"></i>Book a Visit
                     </a>
-                    <a href="index.php#contact" class="btn btn-outline-secondary">
+                    <a href="<?= BASE_URL ?>index.php#contact" class="btn btn-outline-secondary">
                         <i class="bi bi-envelope me-2"></i>Inquire
                     </a>
                 </div>
@@ -367,7 +369,7 @@ require_once 'includes/header.php';
                         <span class="badge-cost"><?= e($rel['cost']) ?></span>
                     </div>
                     <div class="card-footer bg-transparent border-0 px-3 pb-3">
-                        <a href="location.php?id=<?= (int)$rel['id'] ?>" class="btn btn-brand btn-sm w-100">View</a>
+                        <a href="<?= BASE_URL ?>location.php?id=<?= (int)$rel['id'] ?>" class="btn btn-brand btn-sm w-100">View</a>
                     </div>
                 </div>
             </div>
@@ -380,7 +382,6 @@ require_once 'includes/header.php';
 </section>
 </main>
 
-<!-- Google Maps JavaScript API — correct endpoint -->
 <?php if ($has_coords && !empty($maps_key)): ?>
 <script>
 (function () {
@@ -397,7 +398,7 @@ require_once 'includes/header.php';
             position: pos, map: map, title: TITLE, animation: google.maps.Animation.DROP
         });
         var info = new google.maps.InfoWindow({
-            content: '<strong>' + TITLE.replace(/</g,'&lt;') + '</strong>'
+            content: '<strong>' + TITLE.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</strong>'
         });
         marker.addListener('click', function () { info.open(map, marker); });
         info.open(map, marker);
@@ -405,7 +406,6 @@ require_once 'includes/header.php';
     window.initMap = initMap;
 }());
 </script>
-<!-- FIXED: use maps.googleapis.com/maps/api/js (JS API), NOT the Embed API URL -->
 <script async defer
     src="https://maps.googleapis.com/maps/api/js?key=<?= eAttr($maps_key) ?>&callback=initMap">
 </script>
@@ -418,7 +418,6 @@ require_once 'includes/header.php';
 </div>
 <?php endif; ?>
 
-<!-- Favorite AJAX toggle -->
 <?php if (is_logged_in()): ?>
 <script>
 (function () {
@@ -427,13 +426,14 @@ require_once 'includes/header.php';
     if (!btn) return;
 
     btn.addEventListener('click', function () {
-        fetch('favorites.php', {
+        fetch('<?= BASE_URL ?>favorites.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ csrf_token: csrf, location_id: <?= $id ?> })
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
+            if (typeof data.saved === 'undefined') return;
             if (data.saved) {
                 btn.classList.add('btn-danger', 'saved');
                 btn.classList.remove('btn-outline-danger');
@@ -445,13 +445,13 @@ require_once 'includes/header.php';
                 btn.querySelector('i').className = 'bi bi-heart';
                 btn.querySelector('span').textContent = 'Save';
             }
-        });
+        })
+        .catch(function () {});
     });
 }());
 </script>
 <?php endif; ?>
 
-<!-- Character counter — now correctly targets id="comment" -->
 <script>
 (function () {
     var ta  = document.getElementById('comment');
