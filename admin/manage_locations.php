@@ -1,10 +1,5 @@
 <?php
-/**
- * admin/manage_locations.php — Location Management
- *
- * Security: require_admin + admin_session, CSRF, clean_int/clean_string,
- *           filter_var for URL, PDO prepared statements, e() on all output.
- */
+
 
 require_once '../db.php';
 require_once '../functions.php';
@@ -71,13 +66,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_location'])) {
     if (empty($cost))        $add_errors[] = 'Cost is required.';
     if (empty($category))    $add_errors[] = 'Category is required.';
 
+    // Validate coordinate ranges
+    if ($latitude !== null && ($latitude < -90 || $latitude > 90)) {
+        $add_errors[] = 'Latitude must be between -90 and 90.';
+    }
+    if ($longitude !== null && ($longitude < -180 || $longitude > 180)) {
+        $add_errors[] = 'Longitude must be between -180 and 180.';
+    }
+
     if (!empty($image_url)) {
         $validated_url = filter_var($image_url, FILTER_VALIDATE_URL);
         if (!$validated_url || !in_array(parse_url($validated_url, PHP_URL_SCHEME), ['http','https'])) {
             $add_errors[] = 'Image URL must be a valid https:// URL.';
             $image_url = '';
         } else {
-            $image_url = $validated_url;
+            // Only allow common image extensions
+            $ext = strtolower(pathinfo(parse_url($validated_url, PHP_URL_PATH), PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg','jpeg','png','webp','gif'], true)) {
+                $add_errors[] = 'Image URL must point to a jpg, jpeg, png, webp, or gif file.';
+                $image_url = '';
+            } else {
+                $image_url = $validated_url;
+            }
         }
     }
 
@@ -117,15 +127,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_location'])) {
     $latitude    = !empty($_POST['latitude'])  ? (float)$_POST['latitude']  : null;
     $longitude   = !empty($_POST['longitude']) ? (float)$_POST['longitude'] : null;
 
+    $edit_errors = [];
+
+    // Validate coordinate ranges
+    if ($latitude !== null && ($latitude < -90 || $latitude > 90)) {
+        $edit_errors[] = 'Latitude must be between -90 and 90.';
+    }
+    if ($longitude !== null && ($longitude < -180 || $longitude > 180)) {
+        $edit_errors[] = 'Longitude must be between -180 and 180.';
+    }
+
     if (!empty($image_url)) {
         $vurl = filter_var($image_url, FILTER_VALIDATE_URL);
-        $image_url = ($vurl && in_array(parse_url($vurl, PHP_URL_SCHEME), ['http','https']))
-            ? $vurl : null;
+        if ($vurl && in_array(parse_url($vurl, PHP_URL_SCHEME), ['http','https'])) {
+            $ext = strtolower(pathinfo(parse_url($vurl, PHP_URL_PATH), PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg','jpeg','png','webp','gif'], true)) {
+                $edit_errors[] = 'Image URL must point to a jpg, jpeg, png, webp, or gif file.';
+                $image_url = null;
+            } else {
+                $image_url = $vurl;
+            }
+        } else {
+            $image_url = null;
+        }
     } else {
         $image_url = null;
     }
 
-    if ($id > 0 && $title && $description && $cost && $category) {
+    if ($id > 0 && $title && $description && $cost && $category && empty($edit_errors)) {
         try {
             $db   = get_db();
             $stmt = $db->prepare(
@@ -143,7 +172,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_location'])) {
             set_flash('error', 'Could not update location.');
         }
     } else {
-        set_flash('error', 'All required fields must be filled.');
+        if (!empty($edit_errors)) {
+            set_flash('error', implode(' ', $edit_errors));
+        } else {
+            set_flash('error', 'All required fields must be filled.');
+        }
     }
     redirect('admin/manage_locations.php');
 }
@@ -321,16 +354,16 @@ require_once 'admin_header.php';
 
 <script>
 document.getElementById('editLocModal').addEventListener('show.bs.modal', function (e) {
-    var btn = e.relatedTarget;
+    var btn   = e.relatedTarget;
     var modal = document.getElementById('editLocModal');
-    document.getElementById('edit-loc-id').value = btn.dataset.id;
-    modal.querySelector('[name="title"]').value       = btn.dataset.title;
-    modal.querySelector('[name="description"]').value = btn.dataset.description;
-    modal.querySelector('[name="cost"]').value        = btn.dataset.cost;
-    modal.querySelector('[name="category"]').value    = btn.dataset.category;
-    modal.querySelector('[name="image_url"]').value   = btn.dataset.image;
-    modal.querySelector('[name="latitude"]').value    = btn.dataset.lat;
-    modal.querySelector('[name="longitude"]').value   = btn.dataset.lng;
+    document.getElementById('edit-loc-id').value         = btn.dataset.id;
+    modal.querySelector('[name="title"]').value           = btn.dataset.title;
+    modal.querySelector('[name="description"]').value     = btn.dataset.description;
+    modal.querySelector('[name="cost"]').value            = btn.dataset.cost;
+    modal.querySelector('[name="category"]').value        = btn.dataset.category;
+    modal.querySelector('[name="image_url"]').value       = btn.dataset.image;
+    modal.querySelector('[name="latitude"]').value        = btn.dataset.lat;
+    modal.querySelector('[name="longitude"]').value       = btn.dataset.lng;
 });
 </script>
 

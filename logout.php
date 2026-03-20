@@ -17,4 +17,4 @@ if (is_logged_in()) {
 
 start_secure_session();
 set_flash('success', 'You have been signed out successfully.');
-redirect('login.php');
+redirect('../login.php');

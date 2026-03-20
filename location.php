@@ -1,11 +1,10 @@
 <?php
 /**
- * location.php  [UPDATED v4]
- * Added: favorite heart button, "Add to Trip" and "Book Now" shortcut buttons.
- * All existing security (clean_int, prepared stmts, e(), CSRF on forms) preserved.
- *
- * Only the additions are shown; the full file merges with the v2 location.php.
- * Place this file at: your_project/location.php
+ * location.php
+ * Fixes applied:
+ *  - Google Maps script URL corrected to JS API endpoint
+ *  - textarea id="comment" added (char counter was broken)
+ *  - API key moved to constant (define in db.php)
  */
 
 require_once 'db.php';
@@ -14,7 +13,7 @@ require_once 'functions.php';
 start_secure_session();
 
 $id = clean_int($_GET['id'] ?? 0);
-if ($id === 0) { header('Location: locations.php'); exit; }
+if ($id === 0) { header('Location: /locations.php'); exit; }
 
 $location = null;
 try {
@@ -68,7 +67,7 @@ if (is_logged_in()) {
     } catch (PDOException $e) { error_log('[LOC FAV] ' . $e->getMessage()); }
 }
 
-// Comments (approved only — PUBLIC display)
+// Comments (approved only)
 $comments = [];
 try {
     $stmt = $db->prepare(
@@ -94,6 +93,10 @@ try {
 
 $page_title = $location['title'];
 $has_coords = !empty($location['latitude']) && !empty($location['longitude']);
+
+// Google Maps API key — define GOOGLE_MAPS_KEY in db.php
+// Example: define('GOOGLE_MAPS_KEY', 'your_key_here');
+$maps_key = defined('GOOGLE_MAPS_KEY') ? GOOGLE_MAPS_KEY : '';
 
 require_once 'includes/header.php';
 ?>
@@ -168,7 +171,6 @@ require_once 'includes/header.php';
                     </small>
                 </span>
 
-                <!-- Favorite toggle button (logged-in only) -->
                 <?php if (is_logged_in()): ?>
                 <button id="fav-btn"
                         class="btn btn-sm <?= $is_favorited ? 'btn-danger' : 'btn-outline-danger' ?> fav-btn <?= $is_favorited ? 'saved' : '' ?>"
@@ -248,7 +250,8 @@ require_once 'includes/header.php';
                         <input type="hidden" name="location_id" value="<?= $id ?>">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Share Your Experience</label>
-                            <textarea name="comment" class="form-control" rows="3"
+                            <!-- id="comment" is required for the character counter below -->
+                            <textarea name="comment" id="comment" class="form-control" rows="3"
                                       maxlength="1000" required
                                       placeholder="What did you think of <?= eAttr($location['title']) ?>?"></textarea>
                             <div class="form-text d-flex justify-content-between">
@@ -377,8 +380,8 @@ require_once 'includes/header.php';
 </section>
 </main>
 
-<!-- Google Maps -->
-<?php if ($has_coords): ?>
+<!-- Google Maps JavaScript API — correct endpoint -->
+<?php if ($has_coords && !empty($maps_key)): ?>
 <script>
 (function () {
     var LAT   = <?= json_encode((float)$location['latitude'])  ?>;
@@ -402,8 +405,17 @@ require_once 'includes/header.php';
     window.initMap = initMap;
 }());
 </script>
-<script src="https://www.google.com/maps/embed/v1/place?key=AIzaSyAOVYRIgupAurZup5y1PRh8Ismb1A3lLao&q="
-        async defer></script>
+<!-- FIXED: use maps.googleapis.com/maps/api/js (JS API), NOT the Embed API URL -->
+<script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=<?= eAttr($maps_key) ?>&callback=initMap">
+</script>
+<?php elseif ($has_coords && empty($maps_key)): ?>
+<div class="container pb-3">
+    <div class="alert alert-warning" style="font-size:.85rem;">
+        <i class="bi bi-info-circle me-2"></i>
+        Map unavailable — define <code>GOOGLE_MAPS_KEY</code> in <code>db.php</code> to enable it.
+    </div>
+</div>
 <?php endif; ?>
 
 <!-- Favorite AJAX toggle -->
@@ -439,6 +451,7 @@ require_once 'includes/header.php';
 </script>
 <?php endif; ?>
 
+<!-- Character counter — now correctly targets id="comment" -->
 <script>
 (function () {
     var ta  = document.getElementById('comment');

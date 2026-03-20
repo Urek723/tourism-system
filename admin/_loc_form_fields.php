@@ -1,8 +1,5 @@
 <?php
-/**
- * _loc_form_fields.php — Shared form fields for Add/Edit location modals.
- * Included by manage_locations.php. Not a standalone page.
- */
+
 $categories_list = ['Nature', 'Adventure', 'Culture', 'Agri-Tourism', 'Accommodation', 'Heritage'];
 ?>
 <div class="row g-3">

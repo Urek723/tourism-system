@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // PRG Pattern: redirect after POST to prevent duplicate submissions
             set_flash('success', 'Location "' . $old['title'] . '" added successfully!');
-            redirect('admin/index.php');
+            redirect('admin/admin_panel.php');
 
         } catch (PDOException $e) {
             error_log('[ADD LOCATION ERROR] ' . $e->getMessage());
@@ -100,7 +100,7 @@ require_once 'includes/header.php';
                 <nav aria-label="breadcrumb" class="mb-3">
                     <ol class="breadcrumb" style="font-size:.85rem;">
                         <li class="breadcrumb-item">
-                            <a href="admin/index.php" class="text-brand">Admin</a>
+                            <a href="admin/admin_panel.php" class="text-brand">Admin</a>
                         </li>
                         <li class="breadcrumb-item active">Add Location</li>
                     </ol>
@@ -198,7 +198,7 @@ require_once 'includes/header.php';
                             <button type="submit" class="btn btn-brand px-4">
                                 <i class="bi bi-plus-circle me-2"></i>Add Location
                             </button>
-                            <a href="admin/index.php"
+                            <a href="admin/admin_panel.php"
                                class="btn btn-outline-secondary px-4">
                                 Cancel
                             </a>

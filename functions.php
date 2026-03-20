@@ -83,7 +83,6 @@ function validate_password(string $password): array
 
 /**
  * Generate (or return existing) CSRF token for the current session.
- * Call this inside every form to get the token value.
  */
 function csrf_token(): string
 {
@@ -95,7 +94,6 @@ function csrf_token(): string
 
 /**
  * Render a hidden CSRF input field.
- * Place <?= csrf_field() ?> inside every <form>.
  */
 function csrf_field(): string
 {
@@ -104,7 +102,6 @@ function csrf_field(): string
 
 /**
  * Verify the CSRF token submitted with a POST request.
- * Returns true if valid, false otherwise.
  */
 function verify_csrf(): bool
 {
@@ -115,20 +112,18 @@ function verify_csrf(): bool
         return false;
     }
 
-    // hash_equals prevents timing attacks
     return hash_equals($stored, $submitted);
 }
 
 /**
  * Verify CSRF and die with an error if invalid.
- * Call at the top of every POST handler.
  */
 function require_csrf(): void
 {
     if (!verify_csrf()) {
         http_response_code(403);
         die('<p style="color:red;font-family:sans-serif;">
-             Invalid request (CSRF token mismatch). 
+             Invalid request (CSRF token mismatch).
              <a href="javascript:history.back()">Go back</a>.
              </p>');
     }
@@ -138,35 +133,64 @@ function require_csrf(): void
 
 /**
  * Start a secure session with hardened cookie settings.
- * Call this at the very top of every page, before any output.
+ * Also sends no-cache headers so protected pages are never served
+ * from the browser cache after logout (fixes back-button bypass).
  */
 function start_secure_session(): void
 {
     if (session_status() !== PHP_SESSION_NONE) {
-        return; // Already started
+        return;
     }
 
-    // Secure cookie flags
+    // ── No-cache headers — prevent back-button bypass after logout ────────
+    // Must be sent before any output.
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Cache-Control: post-check=0, pre-check=0', false);
+    header('Pragma: no-cache');
+    header('Expires: Sat, 01 Jan 2000 00:00:00 GMT');
+
+    // ── Secure cookie flags ───────────────────────────────────────────────
     session_set_cookie_params([
-        'lifetime' => 0,          // Session cookie (expires on browser close)
+        'lifetime' => 0,
         'path'     => '/',
         'domain'   => '',
         'secure'   => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
-        'httponly' => true,       // Block JavaScript access to session cookie
-        'samesite' => 'Strict',   // CSRF mitigation
+        'httponly' => true,
+        'samesite' => 'Strict',
     ]);
 
-    ini_set('session.use_strict_mode',  '1'); // Reject unknown session IDs
-    ini_set('session.use_only_cookies', '1'); // No session ID in URL
-    ini_set('session.gc_maxlifetime',   '1800'); // 30-minute idle timeout
+    ini_set('session.use_strict_mode',  '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.gc_maxlifetime',   '1800');
 
     session_name('TUPI_SESS');
     session_start();
 
-    // Regenerate session ID periodically to prevent session fixation
+    // ── Active idle timeout (30 minutes) ─────────────────────────────────
+    if (isset($_SESSION['last_activity']) &&
+        (time() - $_SESSION['last_activity']) > 1800) {
+        // Session has been idle too long — destroy and restart clean
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(
+                session_name(), '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'],
+                $params['secure'],
+                $params['httponly']
+            );
+        }
+        session_destroy();
+        session_start();
+    }
+    $_SESSION['last_activity'] = time();
+
+    // ── Regenerate session ID periodically to prevent session fixation ────
     if (!isset($_SESSION['__created'])) {
         $_SESSION['__created'] = time();
-    } elseif (time() - $_SESSION['__created'] > 300) { // Every 5 minutes
+    } elseif (time() - $_SESSION['__created'] > 300) {
         session_regenerate_id(true);
         $_SESSION['__created'] = time();
     }
@@ -179,7 +203,6 @@ function destroy_session(): void
 {
     $_SESSION = [];
 
-    // Delete the session cookie
     if (ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();
         setcookie(
@@ -222,7 +245,7 @@ function require_login(): void
 {
     if (!is_logged_in()) {
         $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '/';
-        header('Location: login.php');
+        header('Location: /login.php');
         exit;
     }
 }
@@ -236,7 +259,7 @@ function require_admin(): void
     require_login();
     if (!is_admin()) {
         $_SESSION['flash_error'] = 'You do not have permission to access that page.';
-        header('Location: dashboard.php');
+        header('Location: /dashboard.php');
         exit;
     }
 }
@@ -244,7 +267,7 @@ function require_admin(): void
 // ── Flash Messages ─────────────────────────────────────────────────────────
 
 /**
- * Set a one-time flash message (persists for one redirect).
+ * Set a one-time flash message.
  */
 function set_flash(string $type, string $message): void
 {
@@ -285,7 +308,7 @@ function flash_alert(string $type, string $bootstrapClass = ''): string
 // ── Brute-Force Protection ─────────────────────────────────────────────────
 
 define('MAX_LOGIN_ATTEMPTS', 5);
-define('LOCKOUT_SECONDS',    900); // 15 minutes
+define('LOCKOUT_SECONDS',    900);
 
 /**
  * Get the real client IP address.
@@ -313,7 +336,6 @@ function is_locked_out(): bool
 
         $elapsed = time() - strtotime($row['last_attempt']);
 
-        // If lockout window has passed, clear the record
         if ($elapsed > LOCKOUT_SECONDS) {
             $db->prepare('DELETE FROM login_attempts WHERE ip_address = ?')->execute([$ip]);
             return false;
@@ -322,7 +344,7 @@ function is_locked_out(): bool
         return (int)$row['attempts'] >= MAX_LOGIN_ATTEMPTS;
     } catch (PDOException $e) {
         error_log('[RATE LIMIT CHECK ERROR] ' . $e->getMessage());
-        return false; // Fail open — don't block if DB is unavailable
+        return false;
     }
 }
 
@@ -332,8 +354,8 @@ function is_locked_out(): bool
 function record_failed_login(): void
 {
     try {
-        $db  = get_db();
-        $ip  = get_client_ip();
+        $db   = get_db();
+        $ip   = get_client_ip();
         $stmt = $db->prepare(
             'INSERT INTO login_attempts (ip_address, attempts, last_attempt)
              VALUES (?, 1, NOW())
@@ -362,13 +384,20 @@ function clear_login_attempts(): void
 // ── Redirect Helper ────────────────────────────────────────────────────────
 
 /**
- * Safe redirect to a relative URL within this application.
- * Prevents open redirect by stripping scheme and host.
+ * Safe redirect using root-relative paths.
+ * Strips scheme+host to prevent open redirect, then ensures
+ * the path starts with / so it is always root-relative.
  */
 function redirect(string $path): void
 {
-    // Strip anything that could make this an external URL
-    $path = ltrim(preg_replace('#^https?://[^/]*#', '', $path), '/');
+    // Strip any scheme + host (prevents open redirect)
+    $path = preg_replace('#^https?://[^/]*#', '', $path);
+
+    // Ensure root-relative
+    if (!str_starts_with($path, '/')) {
+        $path = '/' . $path;
+    }
+
     header('Location: ' . $path);
     exit;
 }

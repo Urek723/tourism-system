@@ -2,11 +2,19 @@
 
 require_once '../db.php';
 require_once '../functions.php';
+require_once '../activity_logger.php';
 
 start_secure_session();
 require_admin();
 
+// Guard: must have logged in via admin_login.php
+if (empty($_SESSION['admin_session'])) {
+    destroy_session();
+    redirect('admin_login.php');
+}
+
 $page_title = 'Moderate Comments';
+$admin_id   = (int)$_SESSION['user_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
@@ -21,10 +29,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($_POST['approve'])) {
                 $stmt = $db->prepare("UPDATE comments SET status = 'approved' WHERE id = ?");
                 $stmt->execute([$comment_id]);
+                log_activity($admin_id, 'admin_comment_approved');
                 set_flash('success', 'Comment approved.');
             } elseif (isset($_POST['delete_comment'])) {
                 $stmt = $db->prepare('DELETE FROM comments WHERE id = ?');
                 $stmt->execute([$comment_id]);
+                log_activity($admin_id, 'admin_comment_deleted');
                 set_flash('success', 'Comment deleted.');
             }
         } catch (PDOException $e) {
@@ -33,8 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // FIX: removed 'admin/' prefix — file is already inside admin/ folder
-    redirect('manage_comments.php?filter=' . $back_filter);
+    redirect('admin/manage_comments.php?filter=' . $back_filter);
 }
 
 $filter = in_array($_GET['filter'] ?? '', ['pending', 'approved']) ? $_GET['filter'] : 'pending';
@@ -57,77 +66,70 @@ try {
     error_log('[MANAGE COMMENTS] ' . $e->getMessage());
 }
 
-require_once '../includes/header.php';
+require_once 'admin_header.php';
 ?>
 
-<main class="py-5">
-<div class="container">
-    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
-        <div>
-            <p class="section-eyebrow mb-1"><a href="index.php" class="text-brand">Admin</a></p>
-            <h1 style="font-size:1.9rem;margin:0;">Moderate Comments</h1>
-        </div>
-        <div class="d-flex gap-2">
-            <a href="?filter=pending"
-               class="btn btn-sm <?= $filter === 'pending' ? 'btn-brand' : 'btn-outline-secondary' ?>">
-                Pending
-            </a>
-            <a href="?filter=approved"
-               class="btn btn-sm <?= $filter === 'approved' ? 'btn-brand' : 'btn-outline-secondary' ?>">
-                Approved
-            </a>
-        </div>
-    </div>
+<?= flash_alert('success') ?>
+<?= flash_alert('error') ?>
 
-    <?= flash_alert('success') ?>
-    <?= flash_alert('error') ?>
+<div class="d-flex gap-2 mb-3">
+    <a href="?filter=pending"
+       class="btn btn-sm <?= $filter === 'pending' ? '' : 'btn-outline-secondary' ?>"
+       style="<?= $filter === 'pending' ? 'background:#c0392b;color:#fff;' : '' ?>">
+        Pending
+    </a>
+    <a href="?filter=approved"
+       class="btn btn-sm <?= $filter === 'approved' ? '' : 'btn-outline-secondary' ?>"
+       style="<?= $filter === 'approved' ? 'background:#c0392b;color:#fff;' : '' ?>">
+        Approved
+    </a>
+</div>
 
-    <?php if (empty($comments)): ?>
-    <div class="alert alert-info">No <?= e($filter) ?> comments.</div>
-    <?php else: ?>
-    <div class="d-flex flex-column gap-3">
-        <?php foreach ($comments as $c): ?>
-        <div class="p-4 rounded-3" style="background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.06);">
-            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-                <div class="flex-grow-1">
-                    <div class="d-flex gap-2 align-items-center mb-1 flex-wrap">
-                        <span class="fw-bold"><?= e($c['username']) ?></span>
-                        <span style="color:var(--brand-muted);font-size:.8rem;">on</span>
-                        <span class="badge-category"><?= e($c['location_title']) ?></span>
-                        <span style="font-size:.75rem;color:var(--brand-muted);">
-                            <?= e(date('M j, Y', strtotime($c['created_at']))) ?>
-                        </span>
-                    </div>
-                    <p class="mb-0" style="line-height:1.7;"><?= e($c['comment']) ?></p>
+<?php if (empty($comments)): ?>
+<div class="alert alert-info">No <?= e($filter) ?> comments.</div>
+<?php else: ?>
+<div class="d-flex flex-column gap-3">
+    <?php foreach ($comments as $c): ?>
+    <div class="stat-card p-4">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+            <div class="flex-grow-1">
+                <div class="d-flex gap-2 align-items-center mb-1 flex-wrap">
+                    <span class="fw-bold"><?= e($c['username']) ?></span>
+                    <span style="color:var(--admin-muted);font-size:.8rem;">on</span>
+                    <span style="font-size:.8rem;background:#f0f2f5;padding:.15em .5em;border-radius:4px;">
+                        <?= e($c['location_title']) ?>
+                    </span>
+                    <span style="font-size:.75rem;color:var(--admin-muted);">
+                        <?= e(date('M j, Y', strtotime($c['created_at']))) ?>
+                    </span>
                 </div>
-                <div class="d-flex gap-2 flex-shrink-0">
-                    <?php if ($c['status'] === 'pending'): ?>
-                    <form method="POST" action="manage_comments.php">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="comment_id"     value="<?= (int)$c['id'] ?>">
-                        <input type="hidden" name="current_filter" value="<?= e($filter) ?>">
-                        <button type="submit" name="approve" class="btn btn-sm btn-success">
-                            <i class="bi bi-check-lg me-1"></i>Approve
-                        </button>
-                    </form>
-                    <?php endif; ?>
-                    <form method="POST" action="manage_comments.php"
-                          onsubmit="return confirm('Delete this comment?')">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="comment_id"     value="<?= (int)$c['id'] ?>">
-                        <input type="hidden" name="current_filter" value="<?= e($filter) ?>">
-                        <button type="submit" name="delete_comment" class="btn btn-sm btn-outline-danger">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </form>
-                </div>
+                <p class="mb-0" style="line-height:1.7;"><?= e($c['comment']) ?></p>
+            </div>
+            <div class="d-flex gap-2 flex-shrink-0">
+                <?php if ($c['status'] === 'pending'): ?>
+                <form method="POST" action="manage_comments.php">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="comment_id"     value="<?= (int)$c['id'] ?>">
+                    <input type="hidden" name="current_filter" value="<?= e($filter) ?>">
+                    <button type="submit" name="approve" class="btn btn-sm btn-success">
+                        <i class="bi bi-check-lg me-1"></i>Approve
+                    </button>
+                </form>
+                <?php endif; ?>
+                <form method="POST" action="manage_comments.php"
+                      onsubmit="return confirm('Delete this comment?')">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="comment_id"     value="<?= (int)$c['id'] ?>">
+                    <input type="hidden" name="current_filter" value="<?= e($filter) ?>">
+                    <button type="submit" name="delete_comment" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </form>
             </div>
         </div>
-        <?php endforeach; ?>
     </div>
-    <?php endif; ?>
-
+    <?php endforeach; ?>
 </div>
-</main>
+<?php endif; ?>
 
-<?php require_once '../includes/footer.php'; ?>
+<?php require_once 'admin_footer.php'; ?>

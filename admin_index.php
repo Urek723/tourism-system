@@ -1,27 +1,14 @@
 <?php
-/**
- * admin/index.php — Admin Dashboard  [ENHANCED v2]
- *
- * ADDED IN THIS VERSION:
- *  - Rating and comment counts shown per location
- *  - Edit-coordinates modal (lat/lng per location)
- *  - Unread-inquiry count badge in stats strip
- *
- * ALL EXISTING SECURITY PRESERVED:
- *  ✔ require_admin()     — admin role enforced
- *  ✔ CSRF tokens         — on all POST forms (delete + update coords)
- *  ✔ clean_int()         — all ID parameters sanitised
- *  ✔ PDO prepared stmts  — every query uses bound parameters
- *  ✔ e() / eAttr()       — all output HTML-escaped
- *  ✔ PRG redirect        — all POST actions redirect after processing
- */
 
 require_once '../db.php';
 require_once '../functions.php';
 
 start_secure_session();
 require_admin();
-
+if (empty($_SESSION['admin_session'])) {
+    destroy_session();
+    redirect('admin_login.php');
+}
 $page_title = 'Admin Panel';
 
 // ── Handle: delete location ───────────────────────────────────────────────
@@ -39,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_location'])) {
             set_flash('error', 'Could not delete location.');
         }
     }
-    redirect('admin/index.php');
+    redirect('admin/admin_panel.php');
 }
 
 // ── Handle: update coordinates ────────────────────────────────────────────
@@ -78,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_coords'])) {
     } else {
         set_flash('error', implode(' ', $coord_errors) ?: 'Invalid location ID.');
     }
-    redirect('admin/index.php');
+    redirect('admin/admin_panel.php');
 }
 
 // ── Handle: delete inquiry ────────────────────────────────────────────────
@@ -96,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_inquiry'])) {
             set_flash('error', 'Could not delete inquiry.');
         }
     }
-    redirect('admin/index.php');
+    redirect('admin/admin_panel.php');
 }
 
 // ── Fetch locations with rating + comment counts ──────────────────────────
