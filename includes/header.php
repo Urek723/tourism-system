@@ -7,7 +7,7 @@ if (!headers_sent()) {
     header('Expires: Sat, 01 Jan 2000 00:00:00 GMT');
 }
 
-define('BASE_URL', '/');
+// BASE_URL is already defined in functions.php — do not redefine it here.
 
 $page_title = $page_title ?? 'Tupi Tourism';
 
@@ -205,7 +205,7 @@ $current = basename($_SERVER['SCRIPT_NAME']);
 
 <nav class="navbar site-nav navbar-expand-lg">
     <div class="container">
-        <a class="navbar-brand" href="index.php">
+        <a class="navbar-brand" href="<?= BASE_URL ?>index.php">
             Tupi <span>Tourism</span>
         </a>
 
@@ -216,56 +216,52 @@ $current = basename($_SERVER['SCRIPT_NAME']);
 
         <div class="collapse navbar-collapse" id="mainNav">
 
-            <!-- Left nav: public links always visible -->
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'index.php' ? 'active' : '' ?>"
-                       href="index.php">Home</a>
+                       href="<?= BASE_URL ?>index.php">Home</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'locations.php' ? 'active' : '' ?>"
-                       href="locations.php">Destinations</a>
+                       href="<?= BASE_URL ?>locations.php">Destinations</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'helpline.php' ? 'active' : '' ?>"
-                       href="helpline.php">Helpline</a>
+                       href="<?= BASE_URL ?>helpline.php">Helpline</a>
                 </li>
 
-                <!-- Logged-in only nav links -->
                 <?php if (is_logged_in()): ?>
                 <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'trip_planner.php' ? 'active' : '' ?>"
-                       href="trip_planner.php">Trip Planner</a>
+                       href="<?= BASE_URL ?>trip_planner.php">Trip Planner</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'bookings.php' ? 'active' : '' ?>"
-                       href="bookings.php">Bookings</a>
+                       href="<?= BASE_URL ?>bookings.php">Bookings</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'favorites.php' ? 'active' : '' ?>"
-                       href="favorites.php">Favorites</a>
+                       href="<?= BASE_URL ?>favorites.php">Favorites</a>
                 </li>
                 <?php endif; ?>
 
                 <li class="nav-item">
-                    <a class="nav-link" href="index.php#contact">Contact</a>
+                    <a class="nav-link" href="<?= BASE_URL ?>index.php#contact">Contact</a>
                 </li>
             </ul>
 
-            <!-- Right nav -->
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center gap-1">
                 <?php if (is_logged_in()): ?>
 
                     <?php if (is_admin()): ?>
                     <li class="nav-item">
-                        <a class="nav-link" href="admin/admin_panel.php"
+                        <a class="nav-link" href="<?= BASE_URL ?>admin/admin_panel.php"
                            style="color:var(--brand-gold) !important;">
                             <i class="bi bi-shield-lock-fill me-1"></i>Admin
                         </a>
                     </li>
                     <?php endif; ?>
 
-                    <!-- User dropdown -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle"
                            href="#"
@@ -280,19 +276,19 @@ $current = basename($_SERVER['SCRIPT_NAME']);
                             aria-labelledby="userDropdown">
                             <li>
                                 <a class="dropdown-item <?= basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : '' ?>"
-                                   href="dashboard.php">
+                                   href="<?= BASE_URL ?>dashboard.php">
                                     <i class="bi bi-speedometer2 me-2"></i>Dashboard
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item <?= basename($_SERVER['PHP_SELF']) === 'edit_account.php' ? 'active' : '' ?>"
-                                   href="edit_account.php">
+                                   href="<?= BASE_URL ?>edit_account.php">
                                     <i class="bi bi-pencil-square me-2"></i>Edit Account
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
-                                <a class="dropdown-item" href="logout.php">
+                                <a class="dropdown-item" href="<?= BASE_URL ?>logout.php">
                                     <i class="bi bi-box-arrow-right me-2"></i>Sign Out
                                 </a>
                             </li>
@@ -301,10 +297,10 @@ $current = basename($_SERVER['SCRIPT_NAME']);
 
                 <?php else: ?>
                     <li class="nav-item">
-                        <a class="nav-link" href="register.php">Register</a>
+                        <a class="nav-link" href="<?= BASE_URL ?>register.php">Register</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link btn-nav-login" href="login.php">Sign In</a>
+                        <a class="nav-link btn-nav-login" href="<?= BASE_URL ?>login.php">Sign In</a>
                     </li>
                 <?php endif; ?>
             </ul>

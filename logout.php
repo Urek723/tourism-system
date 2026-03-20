@@ -24,4 +24,4 @@ if (!headers_sent()) {
 
 start_secure_session();
 set_flash('success', 'You have been signed out successfully.');
-redirect('/login.php');
+redirect(BASE_URL . 'login.php');

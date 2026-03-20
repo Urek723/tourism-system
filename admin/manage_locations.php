@@ -1,6 +1,5 @@
 <?php
 
-
 require_once '../db.php';
 require_once '../functions.php';
 require_once '../activity_logger.php';
@@ -66,13 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_location'])) {
     if (empty($cost))        $add_errors[] = 'Cost is required.';
     if (empty($category))    $add_errors[] = 'Category is required.';
 
-    // Validate coordinate ranges
-    if ($latitude !== null && ($latitude < -90 || $latitude > 90)) {
+    if ($latitude !== null && ($latitude < -90 || $latitude > 90))
         $add_errors[] = 'Latitude must be between -90 and 90.';
-    }
-    if ($longitude !== null && ($longitude < -180 || $longitude > 180)) {
+    if ($longitude !== null && ($longitude < -180 || $longitude > 180))
         $add_errors[] = 'Longitude must be between -180 and 180.';
-    }
 
     if (!empty($image_url)) {
         $validated_url = filter_var($image_url, FILTER_VALIDATE_URL);
@@ -80,7 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_location'])) {
             $add_errors[] = 'Image URL must be a valid https:// URL.';
             $image_url = '';
         } else {
-            // Only allow common image extensions
             $ext = strtolower(pathinfo(parse_url($validated_url, PHP_URL_PATH), PATHINFO_EXTENSION));
             if (!in_array($ext, ['jpg','jpeg','png','webp','gif'], true)) {
                 $add_errors[] = 'Image URL must point to a jpg, jpeg, png, webp, or gif file.';
@@ -129,13 +124,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_location'])) {
 
     $edit_errors = [];
 
-    // Validate coordinate ranges
-    if ($latitude !== null && ($latitude < -90 || $latitude > 90)) {
+    if ($latitude !== null && ($latitude < -90 || $latitude > 90))
         $edit_errors[] = 'Latitude must be between -90 and 90.';
-    }
-    if ($longitude !== null && ($longitude < -180 || $longitude > 180)) {
+    if ($longitude !== null && ($longitude < -180 || $longitude > 180))
         $edit_errors[] = 'Longitude must be between -180 and 180.';
-    }
 
     if (!empty($image_url)) {
         $vurl = filter_var($image_url, FILTER_VALIDATE_URL);
@@ -239,7 +231,7 @@ require_once 'admin_header.php';
     <?php foreach ($locations as $loc): ?>
     <tr>
         <td class="px-3">
-            <a href="../location.php?id=<?= (int)$loc['id'] ?>"
+            <a href="<?= BASE_URL ?>location.php?id=<?= (int)$loc['id'] ?>"
                class="fw-semibold text-decoration-none"
                style="color:#c0392b;" target="_blank">
                 <?= e($loc['title']) ?>

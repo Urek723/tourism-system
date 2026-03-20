@@ -1,3 +1,11 @@
+<?php
+// Prevent back-button bypass after logout
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: Sat, 01 Jan 2000 00:00:00 GMT');
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,7 +31,6 @@
             font-family: 'Segoe UI', system-ui, sans-serif;
             font-size: .9rem;
         }
-        /* Sidebar */
         .admin-sidebar {
             width: 240px;
             min-height: 100vh;
@@ -83,11 +90,7 @@
             transition: color .15s;
         }
         .logout-btn:hover { color: var(--admin-red); }
-        /* Main content */
-        .admin-main {
-            margin-left: 240px;
-            min-height: 100vh;
-        }
+        .admin-main { margin-left: 240px; min-height: 100vh; }
         .admin-topbar {
             background: #fff;
             padding: .85rem 1.5rem;
@@ -103,7 +106,6 @@
             color: #1a1f2e;
         }
         .admin-content { padding: 1.75rem 1.5rem; }
-        /* Table */
         .admin-table th {
             background: #f8fafc;
             font-size: .75rem;
@@ -113,18 +115,15 @@
             color: var(--admin-muted);
             border-bottom: 2px solid #e2e8f0;
         }
-        /* Cards */
         .stat-card {
             background: #fff;
             border-radius: 12px;
             padding: 1.25rem;
             box-shadow: 0 1px 4px rgba(0,0,0,.06);
         }
-        /* Alerts */
         .alert { border-radius: 10px; font-size: .875rem; }
-        /* Badges */
-        .role-admin   { background:#fce8e8;color:#c0392b; }
-        .role-user    { background:#e8f0fc;color:#1a4fa0; }
+        .role-admin { background:#fce8e8;color:#c0392b; }
+        .role-user  { background:#e8f0fc;color:#1a4fa0; }
         @media (max-width: 768px) {
             .admin-sidebar { display: none; }
             .admin-main    { margin-left: 0; }
@@ -142,25 +141,24 @@
 
     <nav class="admin-nav">
         <div class="nav-section-label">Overview</div>
-        <a href="admin_panel.php"
+        <a href="<?= BASE_URL ?>admin/admin_panel.php"
            class="admin-nav-link <?= basename($_SERVER['PHP_SELF']) === 'admin_panel.php' ? 'active' : '' ?>">
             <i class="bi bi-speedometer2"></i> Dashboard
         </a>
 
         <div class="nav-section-label mt-2">Manage</div>
-        <a href="manage_users.php"
+        <a href="<?= BASE_URL ?>admin/manage_users.php"
            class="admin-nav-link <?= basename($_SERVER['PHP_SELF']) === 'manage_users.php' ? 'active' : '' ?>">
             <i class="bi bi-people-fill"></i> Users
         </a>
-        <a href="manage_locations.php"
+        <a href="<?= BASE_URL ?>admin/manage_locations.php"
            class="admin-nav-link <?= basename($_SERVER['PHP_SELF']) === 'manage_locations.php' ? 'active' : '' ?>">
             <i class="bi bi-geo-alt-fill"></i> Locations
         </a>
-        <a href="manage_comments.php"
+        <a href="<?= BASE_URL ?>admin/manage_comments.php"
            class="admin-nav-link <?= basename($_SERVER['PHP_SELF']) === 'manage_comments.php' ? 'active' : '' ?>">
             <i class="bi bi-chat-dots-fill"></i> Comments
             <?php
-            // Pending badge
             try {
                 $db   = get_db();
                 $stmt = $db->prepare("SELECT COUNT(*) FROM comments WHERE status = 'pending'");
@@ -172,17 +170,17 @@
             } catch (Exception $e) {}
             ?>
         </a>
-        <a href="manage_bookings.php"
+        <a href="<?= BASE_URL ?>admin/manage_bookings.php"
            class="admin-nav-link <?= basename($_SERVER['PHP_SELF']) === 'manage_bookings.php' ? 'active' : '' ?>">
             <i class="bi bi-calendar-check-fill"></i> Bookings
         </a>
-        <a href="activity_logs.php"
+        <a href="<?= BASE_URL ?>admin/activity_logs.php"
            class="admin-nav-link <?= basename($_SERVER['PHP_SELF']) === 'activity_logs.php' ? 'active' : '' ?>">
             <i class="bi bi-journal-text"></i> Activity Logs
         </a>
 
         <div class="nav-section-label mt-2">Site</div>
-        <a href="../index.php" class="admin-nav-link" target="_blank">
+        <a href="<?= BASE_URL ?>index.php" class="admin-nav-link" target="_blank">
             <i class="bi bi-box-arrow-up-right"></i> View Site
         </a>
     </nav>
@@ -191,7 +189,7 @@
         <div style="color:rgba(255,255,255,.4);font-size:.75rem;margin-bottom:.5rem;">
             Signed in as <strong style="color:#fff;"><?= e($_SESSION['username'] ?? '') ?></strong>
         </div>
-        <a href="admin_logout.php" class="logout-btn">
+        <a href="<?= BASE_URL ?>admin/admin_logout.php" class="logout-btn">
             <i class="bi bi-box-arrow-right"></i> Sign Out
         </a>
     </div>

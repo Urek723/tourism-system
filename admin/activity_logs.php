@@ -1,9 +1,6 @@
 <?php
 /**
  * admin/activity_logs.php — Activity Log Viewer
- *
- * Security: require_admin + admin_session, clean_int, PDO, e().
- * Read-only page — no POST actions needed.
  */
 
 require_once '../db.php';
@@ -11,7 +8,10 @@ require_once '../functions.php';
 
 start_secure_session();
 require_admin();
-if (empty($_SESSION['admin_session'])) { destroy_session(); redirect('admin_login.php'); }
+if (empty($_SESSION['admin_session'])) {
+    destroy_session();
+    redirect('admin_login.php');
+}
 
 $page_title = 'Activity Logs';
 
@@ -19,7 +19,6 @@ $page     = max(1, clean_int($_GET['page'] ?? 1));
 $per_page = 30;
 $offset   = ($page - 1) * $per_page;
 
-// Optional filter by action keyword
 $filter_action = clean_string($_GET['action'] ?? '', 50);
 
 $logs  = [];
@@ -64,7 +63,6 @@ try {
 
 $total_pages = (int)ceil($total / $per_page);
 
-// Colour-code action types
 function action_badge(string $action): string
 {
     if (str_starts_with($action, 'admin_')) return 'background:#fce8e8;color:#c0392b;';
