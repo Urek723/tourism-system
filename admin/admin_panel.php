@@ -1,16 +1,12 @@
 <?php
-/**
- * admin/admin_panel.php — Admin Dashboard
- *
- * Security: require_admin() + admin_session check, PDO, e(), CSRF on all forms.
- * Access: only users with role='admin' who logged in via admin_login.php.
- */
+
 
 require_once '../db.php';
 require_once '../functions.php';
 require_once '../activity_logger.php';
 
 start_secure_session();
+date_default_timezone_set('Asia/Manila');
 require_admin();
 
 // Extra guard: must have come through admin_login.php
@@ -123,7 +119,7 @@ foreach ($cards as [$icon, $label, $value, $bg, $color, $href]):
                     </span>
                 </td>
                 <td style="color:var(--admin-muted);font-size:.82rem;">
-                    <?= e(date('M j, Y g:i A', strtotime($log['created_at']))) ?>
+                    <?= e(date('M j, Y g:i A', strtotime($log['created_at'] . ' UTC'))) ?>
                 </td>
             </tr>
             <?php endforeach; ?>

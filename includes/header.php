@@ -243,6 +243,10 @@ $current = basename($_SERVER['SCRIPT_NAME']);
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'favorites.php' ? 'active' : '' ?>"
                        href="<?= BASE_URL ?>favorites.php">Favorites</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'inquiries.php' ? 'active' : '' ?>"
+                       href="<?= BASE_URL ?>inquiries.php">Inquiries</a>
+                </li>
                 <?php endif; ?>
 
                 <li class="nav-item">
@@ -284,6 +288,12 @@ $current = basename($_SERVER['SCRIPT_NAME']);
                                 <a class="dropdown-item <?= basename($_SERVER['PHP_SELF']) === 'edit_account.php' ? 'active' : '' ?>"
                                    href="<?= BASE_URL ?>edit_account.php">
                                     <i class="bi bi-pencil-square me-2"></i>Edit Account
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= basename($_SERVER['PHP_SELF']) === 'my_inquiries.php' ? 'active' : '' ?>"
+                                   href="<?= BASE_URL ?>my_inquiries.php">
+                                    <i class="bi bi-envelope me-2"></i>My Inquiries
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>

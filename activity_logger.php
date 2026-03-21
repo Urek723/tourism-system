@@ -1,11 +1,8 @@
 <?php
 /**
- * activity_logger.php  [UPDATED — adds admin action types]
+ * activity_logger.php  [UPDATED — adds inquiry action types]
  *
- * Drop-in replacement for the v4 activity_logger.php.
- * Extended whitelist now covers all admin CRUD actions.
- *
- * Usage: log_activity($user_id, 'admin_login');
+ * Usage: log_activity($user_id, 'user_submitted_inquiry');
  */
 
 function log_activity(int $user_id, string $action): void
@@ -19,6 +16,10 @@ function log_activity(int $user_id, string $action): void
         'preference_updated',
         'favorite_added', 'favorite_removed',
         'trip_added', 'booking_created', 'booking_cancelled',
+        // Inquiry actions
+        'user_submitted_inquiry',
+        'admin_replied_inquiry',
+        'inquiry_resolved',
         // Admin actions
         'admin_login', 'admin_logout',
         'admin_user_deleted',

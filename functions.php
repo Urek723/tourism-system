@@ -1,7 +1,7 @@
 <?php
 
 define('BASE_URL', '/tourism_system/');
-
+date_default_timezone_set('Asia/Manila');
 function e(?string $value): string
 {
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_HTML5, 'UTF-8');

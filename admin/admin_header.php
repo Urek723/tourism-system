@@ -174,6 +174,11 @@ if (!headers_sent()) {
            class="admin-nav-link <?= basename($_SERVER['PHP_SELF']) === 'manage_bookings.php' ? 'active' : '' ?>">
             <i class="bi bi-calendar-check-fill"></i> Bookings
         </a>
+            <a href="<?= BASE_URL ?>admin/manage_inquiries.php"
+            class="admin-nav-link <?= basename($_SERVER['PHP_SELF']) === 'manage_inquiries.php' ? 'active' : '' ?>">
+                <i class="bi bi-envelope-fill"></i> Inquiries
+            </a>
+
         <a href="<?= BASE_URL ?>admin/activity_logs.php"
            class="admin-nav-link <?= basename($_SERVER['PHP_SELF']) === 'activity_logs.php' ? 'active' : '' ?>">
             <i class="bi bi-journal-text"></i> Activity Logs
